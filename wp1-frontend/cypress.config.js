@@ -15,6 +15,7 @@ module.exports = defineConfig({
 			bundler: "vite",
 		},
 		supportFile: "cypress/support/component.js",
+		indexHtmlFile: "cypress/support/component-index.html",
 		specPattern: "cypress/component/**/*.cy.{js,jsx,ts,tsx}",
 	},
 });

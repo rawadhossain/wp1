@@ -1,16 +1,21 @@
 import { mount } from "cypress/vue2";
-import { router } from "@/main";
+import Vue from "vue";
+import VueRouter from "vue-router";
+import router from "@/router";
 import "./commands";
+
+Vue.use(VueRouter);
 
 Cypress.Commands.add("mount", (component, options = {}) => {
 	return mount(component, {
-		global: {
-			plugins: [router],
-			mocks: {
-				$root: { $data: { isLoggedIn: true } },
-				...options.global?.mocks,
+		router,
+		mocks: {
+			$root: {
+				$data: {
+					isLoggedIn: true,
+				},
 			},
-			...options.global,
+			...(options.mocks || {}),
 		},
 		...options,
 	});
