@@ -15,6 +15,7 @@ module.exports = defineConfig({
     devServer: {
       framework: 'vue',
       bundler: 'vite',
+      indexHtmlFile: 'cypress/support/component-index.html',
     },
     specPattern: 'cypress/component/**/*.cy.{js,jsx,ts,tsx}',
     supportFile: 'cypress/support/component.js',
