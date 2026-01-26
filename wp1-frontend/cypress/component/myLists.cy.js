@@ -1,20 +1,31 @@
 /// <reference types="Cypress" />
 
-describe('the user selection list page', () => {
+import MyLists from '../../src/components/MyLists.vue';
+
+describe('MyLists Component', () => {
   describe('when the user is logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/selection/simple/lists', {
-        fixture: 'list_data.json',
-      }).as('list');
-      cy.intercept('v1/oauth/identify', { fixture: 'identity.json' }).as(
-        'login',
-      );
-      cy.visit('/#/selections/user');
+      cy.intercept('**/v1/selection/simple/lists', { fixture: 'list_data.json' }).as('list');
+      cy.intercept('**/v1/oauth/identify', { fixture: 'identity.json' }).as('login');
+      
+      cy.mount(MyLists, {
+        route: '/selections/user',
+        routes: [
+          { path: '/selections/user', component: MyLists },
+          { path: '/selections/simple/:builder_id', component: { template: '<div>Simple Edit</div>' } },
+          { path: '/selections/sparql/:builder_id', component: { template: '<div>SPARQL Edit</div>' } },
+          { path: '/selections/:builder_id/zim', component: { template: '<div>ZIM</div>' } },
+        ],
+        rootData: { isLoggedIn: true },
+      });
+      
       cy.wait('@login');
       cy.wait('@list');
     });
 
-    it('successfully loads', () => {});
+    it('successfully loads', () => {
+      cy.get('table').should('exist');
+    });
 
     it('displays the datatables view', () => {
       cy.get('.dataTables_info').contains('Showing 1 to 12 of 12 entries');
@@ -68,21 +79,21 @@ describe('the user selection list page', () => {
     });
 
     it('takes the user to the simple edit screen when simple edit is clicked', () => {
-      cy.intercept('GET', 'v1/builders/1', { fixture: 'simple_builder.json' });
+      cy.intercept('GET', '**/v1/builders/1', { fixture: 'simple_builder.json' });
       cy.contains('td', 'simple list')
         .siblings()
         .contains('.btn-primary', 'Edit')
         .click();
-      cy.url().should('eq', 'http://localhost:5173/#/selections/simple/1');
+      cy.url().should('include', '/selections/simple/1');
     });
 
     it('takes the user to the SPARQL edit screen when SPARQL edit is clicked', () => {
-      cy.intercept('GET', 'v1/builders/1', { fixture: 'sparql_builder.json' });
+      cy.intercept('GET', '**/v1/builders/1', { fixture: 'sparql_builder.json' });
       cy.contains('td', 'sparql list')
         .siblings()
         .contains('.btn-primary', 'Edit')
         .click();
-      cy.url().should('eq', 'http://localhost:5173/#/selections/sparql/2');
+      cy.url().should('include', '/selections/sparql/2');
     });
 
     it('displays a failed link for selection with failed ZIM', () => {
@@ -99,7 +110,7 @@ describe('the user selection list page', () => {
         .within(() => {
           cy.get('td').eq(7).get('span a').click();
         });
-      cy.url().should('eq', 'http://localhost:5173/#/selections/3a3d4c8e/zim');
+      cy.url().should('include', '/selections/3a3d4c8e/zim');
     });
 
     describe('when the selection has not been materialized', () => {
@@ -204,7 +215,7 @@ describe('the user selection list page', () => {
       });
     });
 
-    describe('when there is an deleted ZIM', () => {
+    describe('when there is a deleted ZIM', () => {
       it('displays the ZIM updated date', () => {
         cy.contains('td', 'deleted zim')
           .parent('tr')
@@ -251,7 +262,12 @@ describe('the user selection list page', () => {
 
   describe('when the user is not logged in', () => {
     it('opens login page', () => {
-      cy.visit('/#/selections/user');
+      cy.mount(MyLists, {
+        route: '/selections/user',
+        routes: [{ path: '/selections/user', component: MyLists }],
+        rootData: { isLoggedIn: false },
+      });
+      
       cy.contains('Please Log In To Continue');
       cy.get('.pt-2 > .btn');
     });

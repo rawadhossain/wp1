@@ -1,14 +1,27 @@
 /// <reference types="Cypress" />
 
-describe('the create SPARQL builder page', () => {
+import SparqlBuilder from '../../src/components/SparqlBuilder.vue';
+
+describe('SparqlBuilder Component - Create Mode', () => {
   describe('when the user is logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' });
-      cy.intercept('v1/oauth/identify', { fixture: 'identity.json' });
-      cy.visit('/#/selections/sparql');
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
+      cy.intercept('**/v1/oauth/identify', { fixture: 'identity.json' }).as('identity');
+      
+      cy.mount(SparqlBuilder, {
+        route: '/selections/sparql',
+        routes: [
+          { path: '/selections/sparql', component: SparqlBuilder },
+          { path: '/selections/sparql/:builder_id', component: SparqlBuilder },
+          { path: '/selections/user', component: { template: '<div id="user-page">User Page</div>' } },
+        ],
+        rootData: { isLoggedIn: true },
+      });
     });
 
-    it('successfully loads', () => {});
+    it('successfully loads', () => {
+      cy.get('select').should('exist');
+    });
 
     it('displays wiki projects', () => {
       cy.get('select').contains('aa.wikipedia.org');
@@ -42,7 +55,7 @@ describe('the create SPARQL builder page', () => {
       cy.get('#listName > .form-control').click().type('List Name');
       cy.get('#items > .form-control').click().type('SELECT ?foo');
 
-      cy.intercept('v1/builders/', { fixture: 'save_sparql_failure.json' });
+      cy.intercept('**/v1/builders/', { fixture: 'save_sparql_failure.json' }).as('save');
       cy.get('#saveListButton').click();
 
       cy.get('#items > .form-control').should('have.value', 'SELECT ?foo');
@@ -93,7 +106,7 @@ describe('the create SPARQL builder page', () => {
     });
 
     it('saves successfully after fixing invalid query', () => {
-      cy.intercept('v1/builders/', (req) => {
+      cy.intercept('**/v1/builders/', (req) => {
         if (req.body.params.query.indexOf('WHERE') === -1) {
           // First request is missing a WHERE clause.
           req.reply({
@@ -107,7 +120,7 @@ describe('the create SPARQL builder page', () => {
             fixture: 'save_sparql_success.json',
           });
         }
-      });
+      }).as('save');
 
       cy.get('#listName > .form-control').click().type('List Name');
       cy.get('#items > .form-control').click().type('SELECT ?foo');
@@ -119,18 +132,18 @@ describe('the create SPARQL builder page', () => {
         .type('SELECT ?foo WHERE {}', { parseSpecialCharSequences: false });
 
       cy.get('#saveListButton').click();
-      cy.url().should('eq', 'http://localhost:5173/#/selections/user');
+      cy.url().should('include', '/selections/user');
     });
 
     describe('when save button clicked', () => {
       beforeEach(() => {
-        cy.intercept('v1/builders/', (req) => {
+        cy.intercept('**/v1/builders/', (req) => {
           req.continue(() => {
             return new Promise((resolve) => {
               setTimeout(resolve, 4000);
             });
           });
-        });
+        }).as('slowSave');
       });
 
       it('shows spinner', () => {
@@ -151,19 +164,27 @@ describe('the create SPARQL builder page', () => {
     it('redirects on saving valid builder', () => {
       cy.get('#listName > .form-control').click().type('List Name');
       cy.get('#items > .form-control').click().type('SELECT ?article FROM foo');
-      cy.intercept('v1/builders/', { fixture: 'save_list_success.json' });
+      cy.intercept('**/v1/builders/', { fixture: 'save_list_success.json' }).as('save');
       cy.get('#saveListButton').click();
-      cy.url().should('eq', 'http://localhost:5173/#/selections/user');
+      cy.url().should('include', '/selections/user');
     });
   });
 
   describe('when the user is not logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' });
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
     });
 
     it('opens login page', () => {
-      cy.visit('/#/selections/sparql');
+      cy.mount(SparqlBuilder, {
+        route: '/selections/sparql',
+        routes: [
+          { path: '/selections/sparql', component: SparqlBuilder },
+          { path: '/selections/user', component: { template: '<div>User Page</div>' } },
+        ],
+        rootData: { isLoggedIn: false },
+      });
+      
       cy.contains('Please Log In To Continue');
       cy.get('.pt-2 > .btn');
     });

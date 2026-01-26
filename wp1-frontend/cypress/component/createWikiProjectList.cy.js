@@ -1,14 +1,28 @@
 /// <reference types="Cypress" />
 
-describe('the create WikiProject builder page', () => {
+import WikiProjectBuilder from '../../src/components/WikiProjectBuilder.vue';
+
+describe('WikiProjectBuilder Component - Create Mode', () => {
   describe('when the user is logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' });
-      cy.intercept('v1/oauth/identify', { fixture: 'identity.json' });
-      cy.visit('/#/selections/wikiproject');
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
+      cy.intercept('**/v1/oauth/identify', { fixture: 'identity.json' }).as('identity');
+      cy.intercept('**/v1/projects/', { body: [{ name: 'Alien' }, { name: 'Water' }, { name: 'Barbados' }] }).as('projects');
+      
+      cy.mount(WikiProjectBuilder, {
+        route: '/selections/wikiproject',
+        routes: [
+          { path: '/selections/wikiproject', component: WikiProjectBuilder },
+          { path: '/selections/wikiproject/:builder_id', component: WikiProjectBuilder },
+          { path: '/selections/user', component: { template: '<div id="user-page">User Page</div>' } },
+        ],
+        rootData: { isLoggedIn: true },
+      });
     });
 
-    it('successfully loads', () => {});
+    it('successfully loads', () => {
+      cy.get('select').should('exist');
+    });
 
     it('displays only en.wikipedia.org', () => {
       cy.get('select').contains('en.wikipedia.org');
@@ -23,7 +37,7 @@ describe('the create WikiProject builder page', () => {
     it('validates input on clicking save', () => {
       cy.get('#saveListButton').click();
       cy.get('#listName > .invalid-feedback').should('be.visible');
-      cy.get('#lists .invalid-feedback').should('be.visible')
+      cy.get('#lists .invalid-feedback').should('be.visible');
       cy.get('#include-items').find('.invalid-feedback').should('be.visible');
     });
 
@@ -37,55 +51,36 @@ describe('the create WikiProject builder page', () => {
       cy.get('#listName > .form-control').click();
       cy.get('#listName > .form-control').type('List name');
       cy.get('#include-items').click();
-      cy.intercept('v1/builders/', (req) => {
-        req.reply({
-          statusCode: 200,
-          fixture: 'save_wikiproject_failure.json',
-        });
-    });
+      cy.intercept('**/v1/builders/', { fixture: 'save_wikiproject_failure.json' }).as('save');
       cy.get('#include-items').type('Fake Project\n');
       cy.get('#include-projects').children().eq(0).should('contain.text', 'Fake Project');
-      cy.get('#invalid_articles > .form-control').should(
-        'have.value',
-        'Fake Project',
-      );
+      cy.get('#invalid_articles > .form-control').should('have.value', 'Fake Project');
     });
 
     it('saves successfully after fixing invalid names', () => {
       let count = 0;
-      cy.intercept('v1/builders/', (req) => {
+      cy.intercept('**/v1/builders/', (req) => {
         if (count === 0) {
-          // First request fails.
           count++;
-          req.reply({
-            statusCode: 200,
-            fixture: 'save_wikiproject_failure.json',
-          });
+          req.reply({ statusCode: 200, fixture: 'save_wikiproject_failure.json' });
         } else {
-          req.reply({
-            statusCode: 200,
-            fixture: 'save_list_success.json',
-          });
+          req.reply({ statusCode: 200, fixture: 'save_list_success.json' });
         }
-      });
+      }).as('save');
 
       cy.get('#listName > .form-control').click();
       cy.get('#listName > .form-control').type('List Name');
       cy.get('#include-items').click();
       cy.get('#include-items').type('Water\n');
       cy.get('#saveListButton').click();
-      cy.url().should('eq', 'http://localhost:5173/#/selections/user');
+      cy.url().should('include', '/selections/user');
     });
 
     describe('when save button clicked', () => {
       beforeEach(() => {
-        cy.intercept('v1/builders/', (req) => {
-          req.continue(() => {
-            return new Promise((resolve) => {
-              setTimeout(resolve, 4000);
-            });
-          });
-        });
+        cy.intercept('**/v1/builders/', (req) => {
+          req.continue(() => new Promise((resolve) => setTimeout(resolve, 4000)));
+        }).as('slowSave');
       });
 
       it('shows spinner', () => {
@@ -124,12 +119,10 @@ describe('the create WikiProject builder page', () => {
       cy.get('#include-items').find('.results').children('li').eq(0).should('contain.text', 'Alien');
       cy.get('#include-items').find('.results').children('li').eq(0).click();
 
-      cy.intercept('v1/builders/', { fixture: 'save_list_success.json' }).as(
-        'createBuilderSuccess',
-      );
+      cy.intercept('**/v1/builders/', { fixture: 'save_list_success.json' }).as('createBuilderSuccess');
       cy.get('#saveListButton').click();
       cy.wait('@createBuilderSuccess');
-      cy.url().should('eq', 'http://localhost:5173/#/selections/user');
+      cy.url().should('include', '/selections/user');
     });
 
     it('sends correct data to API', () => {
@@ -146,28 +139,30 @@ describe('the create WikiProject builder page', () => {
       cy.get('#exclude-items').find('.results').children('li').eq(0).should('contain.text', 'Barbados');
       cy.get('#exclude-items').find('.results').children('li').eq(0).click();
 
-      cy.intercept('v1/builders/', { fixture: 'save_list_success.json' }).as(
-        'createBuilderSuccess',
-      );
+      cy.intercept('**/v1/builders/', { fixture: 'save_list_success.json' }).as('createBuilderSuccess');
       cy.get('#saveListButton').click();
       cy.wait('@createBuilderSuccess').then((interception) => {
-        expect(interception.request.body.params.include).to.deep.equal([
-          'Alien',
-        ]);
-        expect(interception.request.body.params.exclude).to.deep.equal([
-          'Barbados',
-        ]);
+        expect(interception.request.body.params.include).to.deep.equal(['Alien']);
+        expect(interception.request.body.params.exclude).to.deep.equal(['Barbados']);
       });
     });
   });
 
   describe('when the user is not logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' });
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
     });
 
     it('opens login page', () => {
-      cy.visit('/#/selections/simple');
+      cy.mount(WikiProjectBuilder, {
+        route: '/selections/wikiproject',
+        routes: [
+          { path: '/selections/wikiproject', component: WikiProjectBuilder },
+          { path: '/selections/user', component: { template: '<div>User Page</div>' } },
+        ],
+        rootData: { isLoggedIn: false },
+      });
+      
       cy.contains('Please Log In To Continue');
       cy.get('.pt-2 > .btn');
     });

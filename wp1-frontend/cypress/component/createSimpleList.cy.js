@@ -1,14 +1,27 @@
 /// <reference types="Cypress" />
 
-describe('the create simple builder page', () => {
+import SimpleBuilder from '../../src/components/SimpleBuilder.vue';
+
+describe('SimpleBuilder Component - Create Mode', () => {
   describe('when the user is logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' });
-      cy.intercept('v1/oauth/identify', { fixture: 'identity.json' });
-      cy.visit('/#/selections/simple');
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
+      cy.intercept('**/v1/oauth/identify', { fixture: 'identity.json' }).as('identity');
+      
+      cy.mount(SimpleBuilder, {
+        route: '/selections/simple',
+        routes: [
+          { path: '/selections/simple', component: SimpleBuilder },
+          { path: '/selections/simple/:builder_id', component: SimpleBuilder },
+          { path: '/selections/user', component: { template: '<div id="user-page">User Page</div>' } },
+        ],
+        rootData: { isLoggedIn: true },
+      });
     });
 
-    it('successfully loads', () => {});
+    it('successfully loads', () => {
+      cy.get('select').should('exist');
+    });
 
     it('displays wiki projects', () => {
       cy.get('select').contains('aa.wikipedia.org');
@@ -44,7 +57,7 @@ describe('the create simple builder page', () => {
       cy.get('#items > .form-control')
         .click()
         .type('Eiffel_Tower\nStatue of#Liberty');
-      cy.intercept('v1/builders/', { fixture: 'save_list_failure.json' });
+      cy.intercept('**/v1/builders/', { fixture: 'save_list_failure.json' }).as('save');
       cy.get('#saveListButton').click();
 
       cy.get('#items > .invalid-feedback').should('be.visible');
@@ -64,7 +77,7 @@ describe('the create simple builder page', () => {
     });
 
     it('saves successfully after fixing invalid names', () => {
-      cy.intercept('v1/builders/', (req) => {
+      cy.intercept('**/v1/builders/', (req) => {
         if (req.body.params.list.length > 1) {
           // First request has two items, second is invalid.
           req.reply({
@@ -78,7 +91,7 @@ describe('the create simple builder page', () => {
             fixture: 'save_list_success.json',
           });
         }
-      });
+      }).as('save');
 
       cy.get('#listName > .form-control').click().type('List Name');
       cy.get('#items > .form-control')
@@ -89,18 +102,18 @@ describe('the create simple builder page', () => {
       cy.get('#items > .form-control').click().clear().type('Eiffel_Tower');
 
       cy.get('#saveListButton').click();
-      cy.url().should('eq', 'http://localhost:5173/#/selections/user');
+      cy.url().should('include', '/selections/user');
     });
 
     describe('when save button clicked', () => {
       beforeEach(() => {
-        cy.intercept('v1/builders/', (req) => {
+        cy.intercept('**/v1/builders/', (req) => {
           req.continue(() => {
             return new Promise((resolve) => {
               setTimeout(resolve, 4000);
             });
           });
-        });
+        }).as('slowSave');
       });
 
       it('shows spinner', () => {
@@ -123,19 +136,27 @@ describe('the create simple builder page', () => {
       cy.get('#items > .form-control')
         .click()
         .type('Eiffel_Tower\nStatue of Liberty');
-      cy.intercept('v1/builders/', { fixture: 'save_list_success.json' });
+      cy.intercept('**/v1/builders/', { fixture: 'save_list_success.json' }).as('save');
       cy.get('#saveListButton').click();
-      cy.url().should('eq', 'http://localhost:5173/#/selections/user');
+      cy.url().should('include', '/selections/user');
     });
   });
 
   describe('when the user is not logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' });
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
     });
 
     it('opens login page', () => {
-      cy.visit('/#/selections/simple');
+      cy.mount(SimpleBuilder, {
+        route: '/selections/simple',
+        routes: [
+          { path: '/selections/simple', component: SimpleBuilder },
+          { path: '/selections/user', component: { template: '<div>User Page</div>' } },
+        ],
+        rootData: { isLoggedIn: false },
+      });
+      
       cy.contains('Please Log In To Continue');
       cy.get('.pt-2 > .btn');
     });
