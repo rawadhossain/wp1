@@ -1,26 +1,25 @@
 /// <reference types="Cypress" />
 
-describe('the zim file creation page', () => {
+import ZimFile from '../../src/components/ZimFile.vue';
+
+describe('ZimFile Component', () => {
   describe('when the user is logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/oauth/identify', { fixture: 'identity.json' }).as(
-        'identity',
-      );
+      cy.intercept('**/v1/oauth/identify', { fixture: 'identity.json' }).as('identity');
+      cy.intercept('**/v1/oauth/email', { body: { email: 'test@example.com' } }).as('email');
     });
 
     describe('and the builder is found', () => {
       beforeEach(() => {
-        cy.intercept('GET', 'v1/builders/1', {
-          fixture: 'simple_builder.json',
-        }).as('builder');
+        cy.intercept('GET', '**/v1/builders/1', { fixture: 'simple_builder.json' }).as('builder');
       });
 
       describe('and the selection is under the article limit', () => {
         beforeEach(() => {
-          cy.intercept('GET', 'v1/builders/1/selection/latest/article_count', {
+          cy.intercept('GET', '**/v1/builders/1/selection/latest/article_count', {
             selection: {
               id: '1',
-              aricle_count: 1000,
+              article_count: 1000,
               max_article_count: 50000,
             },
           }).as('article_count');
@@ -28,13 +27,15 @@ describe('the zim file creation page', () => {
 
         describe('when the zim file has not been requested yet', () => {
           beforeEach(() => {
-            cy.intercept('v1/builders/1/zim/status', {
-              fixture: 'zim_status_not_requested.json',
-            }).as('status');
-            cy.intercept('POST', 'v1/builders/1/zim', { statusCode: 204 }).as(
-              'create',
-            );
-            cy.visit('/#/selections/1/zim');
+            cy.intercept('**/v1/builders/1/zim/status', { fixture: 'zim_status_not_requested.json' }).as('status');
+            cy.intercept('POST', '**/v1/builders/1/zim', { statusCode: 204 }).as('create');
+            
+            cy.mount(ZimFile, {
+              route: '/selections/1/zim',
+              routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+              rootData: { isLoggedIn: true },
+            });
+            
             cy.wait('@identity');
             cy.wait('@builder');
             cy.wait('@status');
@@ -57,10 +58,7 @@ describe('the zim file creation page', () => {
             cy.get('#zimtitle').click();
             cy.get('#zimtitle').clear();
             cy.get('#zimtitle').type(longTitle);
-            cy.get('#zimtitle').should(
-              'have.value',
-              longTitle.substring(0, 30),
-            );
+            cy.get('#zimtitle').should('have.value', longTitle.substring(0, 30));
           });
 
           it('handles graphemes correctly', () => {
@@ -74,9 +72,7 @@ describe('the zim file creation page', () => {
           it('does not show the long description invalid feedback if it is empty', () => {
             cy.get('#desc').click();
             cy.get('#longdesc').click();
-            cy.get('#long-desc-group > .invalid-feedback').should(
-              'not.be.visible',
-            );
+            cy.get('#long-desc-group > .invalid-feedback').should('not.be.visible');
           });
 
           it('does not allow submission if the long desc is shorter than the desc', () => {
@@ -129,10 +125,14 @@ describe('the zim file creation page', () => {
 
         describe('when the zim file has been requested but is not ready', () => {
           beforeEach(() => {
-            cy.intercept('v1/builders/1/zim/status', {
-              fixture: 'zim_status_not_ready.json',
-            }).as('status');
-            cy.visit('/#/selections/1/zim');
+            cy.intercept('**/v1/builders/1/zim/status', { fixture: 'zim_status_not_ready.json' }).as('status');
+            
+            cy.mount(ZimFile, {
+              route: '/selections/1/zim',
+              routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+              rootData: { isLoggedIn: true },
+            });
+            
             cy.wait('@identity');
             cy.wait('@builder');
             cy.wait('@status');
@@ -155,10 +155,14 @@ describe('the zim file creation page', () => {
 
         describe('when the zim file is ready', () => {
           beforeEach(() => {
-            cy.intercept('v1/builders/1/zim/status', {
-              fixture: 'zim_status_ready.json',
-            }).as('status');
-            cy.visit('/#/selections/1/zim');
+            cy.intercept('**/v1/builders/1/zim/status', { fixture: 'zim_status_ready.json' }).as('status');
+            
+            cy.mount(ZimFile, {
+              route: '/selections/1/zim',
+              routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+              rootData: { isLoggedIn: true },
+            });
+            
             cy.wait('@identity');
             cy.wait('@builder');
             cy.wait('@status');
@@ -181,10 +185,14 @@ describe('the zim file creation page', () => {
 
         describe('when the zim file has failed', () => {
           beforeEach(() => {
-            cy.intercept('v1/builders/1/zim/status', {
-              fixture: 'zim_status_failed.json',
-            }).as('status');
-            cy.visit('/#/selections/1/zim');
+            cy.intercept('**/v1/builders/1/zim/status', { fixture: 'zim_status_failed.json' }).as('status');
+            
+            cy.mount(ZimFile, {
+              route: '/selections/1/zim',
+              routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+              rootData: { isLoggedIn: true },
+            });
+            
             cy.wait('@identity');
             cy.wait('@builder');
             cy.wait('@status');
@@ -210,9 +218,7 @@ describe('the zim file creation page', () => {
 
           describe('when the Request ZIM file button is clicked', () => {
             beforeEach(() => {
-              cy.intercept('POST', 'v1/builders/1/zim', {
-                statusCode: 204,
-              }).as('request');
+              cy.intercept('POST', '**/v1/builders/1/zim', { statusCode: 204 }).as('request');
 
               cy.get('#desc').click();
               cy.get('#desc').type('Description from user');
@@ -227,10 +233,14 @@ describe('the zim file creation page', () => {
 
         describe('when the zim file is expired', () => {
           beforeEach(() => {
-            cy.intercept('v1/builders/1/zim/status', {
-              fixture: 'zim_status_deleted.json',
-            }).as('status');
-            cy.visit('/#/selections/1/zim');
+            cy.intercept('**/v1/builders/1/zim/status', { fixture: 'zim_status_deleted.json' }).as('status');
+            
+            cy.mount(ZimFile, {
+              route: '/selections/1/zim',
+              routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+              rootData: { isLoggedIn: true },
+            });
+            
             cy.wait('@identity');
             cy.wait('@builder');
             cy.wait('@status');
@@ -258,39 +268,65 @@ describe('the zim file creation page', () => {
 
       describe('and the selection is over the article limit', () => {
         beforeEach(() => {
-          cy.intercept('GET', 'v1/builders/1/selection/latest/article_count', {
+          cy.intercept('GET', '**/v1/builders/1/selection/latest/article_count', {
             selection: {
               id: '1',
               article_count: 100000,
               max_article_count: 50000,
             },
           }).as('article_count');
-          cy.intercept('v1/builders/1/zim/status', {
-            fixture: 'zim_status_not_requested.json',
-          }).as('status');
+          cy.intercept('**/v1/builders/1/zim/status', { fixture: 'zim_status_not_requested.json' }).as('status');
         });
 
         it('displays the article error message', () => {
-          cy.visit('/#/selections/1/zim');
+          cy.mount(ZimFile, {
+            route: '/selections/1/zim',
+            routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+            rootData: { isLoggedIn: true },
+          });
+          
           cy.wait('@identity');
           cy.wait('@builder');
           cy.wait('@status');
+          
+          cy.get('.article-limit-exceeded').should('be.visible');
         });
       });
     });
 
     describe('and the builder is not found', () => {
       beforeEach(() => {
-        cy.intercept('GET', 'v1/builders/1', {
+        cy.intercept('GET', '**/v1/builders/1', {
           statusCode: 404,
           body: '404 NOT FOUND',
         });
-        cy.visit('/#/selections/1/zim');
       });
 
       it('displays the 404 text', () => {
+        cy.mount(ZimFile, {
+          route: '/selections/1/zim',
+          routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+          rootData: { isLoggedIn: true },
+        });
+        
         cy.get('#404').should('be.visible');
       });
+    });
+  });
+
+  describe('when the user is not logged in', () => {
+    beforeEach(() => {
+      cy.intercept('**/v1/oauth/identify', { statusCode: 401 }).as('identity');
+    });
+
+    it('displays the login required message', () => {
+      cy.mount(ZimFile, {
+        route: '/selections/1/zim',
+        routes: [{ path: '/selections/:builder_id/zim', component: ZimFile }],
+        rootData: { isLoggedIn: false },
+      });
+      
+      cy.get('body').should('contain.text', 'log in');
     });
   });
 });

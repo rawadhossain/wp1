@@ -11,4 +11,13 @@ module.exports = defineConfig({
     baseUrl: 'http://localhost:5173',
     video: false,
   },
+  component: {
+    devServer: {
+      framework: 'vue',
+      bundler: 'vite',
+      indexHtmlFile: 'cypress/support/component-index.html',
+    },
+    specPattern: 'cypress/component/**/*.cy.{js,jsx,ts,tsx}',
+    supportFile: 'cypress/support/component.js',
+  },
 });

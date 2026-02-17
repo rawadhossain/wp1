@@ -1,26 +1,36 @@
 /// <reference types="Cypress" />
 
-describe('the update simple list page', () => {
+import SimpleBuilder from '../../src/components/SimpleBuilder.vue';
+
+describe('SimpleBuilder Component - Update Mode', () => {
   describe('when the user is logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' }).as('sites');
-      cy.intercept('v1/oauth/identify', { fixture: 'identity.json' }).as(
-        'identity'
-      );
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
+      cy.intercept('**/v1/oauth/identify', { fixture: 'identity.json' }).as('identity');
     });
 
     describe('and the builder is found', () => {
       beforeEach(() => {
-        cy.intercept('GET', 'v1/builders/1', {
-          fixture: 'simple_builder.json',
-        }).as('builder');
-        cy.visit('/#/selections/simple/1');
+        cy.intercept('GET', '**/v1/builders/1', { fixture: 'simple_builder.json' }).as('builder');
+        
+        cy.mount(SimpleBuilder, {
+          route: '/selections/simple/1',
+          routes: [
+            { path: '/selections/simple', component: SimpleBuilder },
+            { path: '/selections/simple/:builder_id', component: SimpleBuilder },
+            { path: '/selections/user', component: { template: '<div id="user-page">User Page</div>' } },
+          ],
+          rootData: { isLoggedIn: true },
+        });
+        
         cy.wait('@sites');
         cy.wait('@identity');
         cy.wait('@builder');
       });
 
-      it('successfully loads', () => {});
+      it('successfully loads', () => {
+        cy.get('select').should('exist');
+      });
 
       it('displays wiki projects', () => {
         cy.get('select').contains('aa.wikipedia.org');
@@ -47,7 +57,7 @@ describe('the update simple list page', () => {
 
       it('displays a textbox with invalid article names', () => {
         cy.get('#items > .form-control').click().type('\nStatue of#Liberty');
-        cy.intercept('v1/builders/1', { fixture: 'save_list_failure.json' });
+        cy.intercept('POST', '**/v1/builders/1', { fixture: 'save_list_failure.json' }).as('save');
         cy.get('#updateListButton').click();
         cy.get('#items > .form-control').should(
           'have.value',
@@ -63,22 +73,20 @@ describe('the update simple list page', () => {
       });
 
       it('redirects on saving valid article names', () => {
-        cy.intercept('POST', 'v1/builders/1', {
-          fixture: 'save_list_success.json',
-        });
+        cy.intercept('POST', '**/v1/builders/1', { fixture: 'save_list_success.json' }).as('save');
         cy.get('#updateListButton').click();
-        cy.url().should('eq', 'http://localhost:5173/#/selections/user');
+        cy.url().should('include', '/selections/user');
       });
 
       describe('when update button clicked', () => {
         beforeEach(() => {
-          cy.intercept('POST', 'v1/builders/1', (req) => {
+          cy.intercept('POST', '**/v1/builders/1', (req) => {
             req.continue(() => {
               return new Promise((resolve) => {
                 setTimeout(resolve, 4000);
               });
             });
-          });
+          }).as('slowSave');
         });
 
         it('shows spinner', () => {
@@ -95,10 +103,16 @@ describe('the update simple list page', () => {
 
     describe('and the builder has fatal errors', () => {
       beforeEach(() => {
-        cy.intercept('GET', 'v1/builders/1', {
-          fixture: 'simple_builder_fatal_error.json',
+        cy.intercept('GET', '**/v1/builders/1', { fixture: 'simple_builder_fatal_error.json' }).as('builder');
+        
+        cy.mount(SimpleBuilder, {
+          route: '/selections/simple/1',
+          routes: [
+            { path: '/selections/simple/:builder_id', component: SimpleBuilder },
+            { path: '/selections/user', component: { template: '<div>User Page</div>' } },
+          ],
+          rootData: { isLoggedIn: true },
         });
-        cy.visit('/#/selections/simple/1');
       });
 
       it('displays the error div', () => {
@@ -112,10 +126,16 @@ describe('the update simple list page', () => {
 
     describe('and the builder has retryable errors', () => {
       beforeEach(() => {
-        cy.intercept('GET', 'v1/builders/1', {
-          fixture: 'simple_builder_retryable_error.json',
+        cy.intercept('GET', '**/v1/builders/1', { fixture: 'simple_builder_retryable_error.json' }).as('builder');
+        
+        cy.mount(SimpleBuilder, {
+          route: '/selections/simple/1',
+          routes: [
+            { path: '/selections/simple/:builder_id', component: SimpleBuilder },
+            { path: '/selections/user', component: { template: '<div>User Page</div>' } },
+          ],
+          rootData: { isLoggedIn: true },
         });
-        cy.visit('/#/selections/simple/1');
       });
 
       it('displays the error div', () => {
@@ -129,11 +149,19 @@ describe('the update simple list page', () => {
 
     describe('and the builder is not found', () => {
       beforeEach(() => {
-        cy.intercept('GET', 'v1/builders/1', {
+        cy.intercept('GET', '**/v1/builders/1', {
           statusCode: 404,
           body: '404 NOT FOUND',
+        }).as('builder');
+        
+        cy.mount(SimpleBuilder, {
+          route: '/selections/simple/1',
+          routes: [
+            { path: '/selections/simple/:builder_id', component: SimpleBuilder },
+            { path: '/selections/user', component: { template: '<div>User Page</div>' } },
+          ],
+          rootData: { isLoggedIn: true },
         });
-        cy.visit('/#/selections/simple/1');
       });
 
       it('displays the 404 text', () => {
@@ -144,11 +172,19 @@ describe('the update simple list page', () => {
 
   describe('when the user is not logged in', () => {
     beforeEach(() => {
-      cy.intercept('v1/sites/', { fixture: 'sites.json' });
+      cy.intercept('**/v1/sites/', { fixture: 'sites.json' }).as('sites');
     });
 
     it('opens login page', () => {
-      cy.visit('/#/selections/simple/1');
+      cy.mount(SimpleBuilder, {
+        route: '/selections/simple/1',
+        routes: [
+          { path: '/selections/simple/:builder_id', component: SimpleBuilder },
+          { path: '/selections/user', component: { template: '<div>User Page</div>' } },
+        ],
+        rootData: { isLoggedIn: false },
+      });
+      
       cy.contains('Please Log In To Continue');
       cy.get('.pt-2 > .btn');
     });
