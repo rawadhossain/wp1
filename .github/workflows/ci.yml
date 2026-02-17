@@ -106,13 +106,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-yarn-dep-
 
-      - name: Install Javascript dependencies
-        run: cd wp1-frontend && yarn install --frozen-lockfile
-
       - name: Run Cypress component tests
-        run: |
-          cd wp1-frontend
-          yarn test:component
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: wp1-frontend
+          install-command: yarn install --frozen-lockfile
+          component: true
 
       - uses: actions/upload-artifact@v4
         continue-on-error: true
